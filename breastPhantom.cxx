@@ -255,6 +255,16 @@ int main(int argc, char* argv[]){
     ("ductSeg.segFrac",po::value<double>()->default_value(0.25),"fraction of branch length per segment")
     ;
   
+  /* ==========================================================================================
+  Modifications were made in Lines 277 and 278 by Seonyeong Park to improve blood vasculature 
+  modeling for use in optical and optoacoustic imaging.
+  
+  Reference:
+    Seonyeong Park, Umberto Villa, Fu Li, Refik Mert Cam, Alexander A. Oraevsky, Mark A. 
+    Anastasio, "Stochastic three-dimensional numerical phantoms to enable computational studies 
+    in quantitative optoacoustic computed tomography of breast cancer," J. Biomed. Opt. 28(6) 
+    066002 (20 June 2023) https://doi.org/10.1117/1.JBO.28.6.066002
+  ========================================================================================== */
   po::options_description vesselTreeOpt("Vessel tree options");
   vesselTreeOpt.add_options()
     ("vesselTree.maxBranch",po::value<uint>()->default_value(100),"Maximum number of branches")
@@ -264,6 +274,8 @@ int main(int argc, char* argv[]){
     ("vesselTree.nFillX",po::value<uint>()->default_value(100),"number x voxels for density map")
     ("vesselTree.nFillY",po::value<uint>()->default_value(100),"number y voxels for density map")
     ("vesselTree.nFillZ",po::value<uint>()->default_value(100),"number z voxels for density map")
+    ("vesselTree.vesselEdgeSep1", po::value<double>()->default_value(2), "distance from edge of breast of vessel entry point (mm)")
+    ("vesselTree.vesselEdgeSep2", po::value<double>()->default_value(24), "distance from edge of breast of vessel entry point (mm)");
     ;
 
   po::options_description vesselBrOpt("Vessel branch options");
@@ -4586,6 +4598,17 @@ int main(int argc, char* argv[]){
   double backCenter[3];
   breast->GetPoint(breast->ComputePointId(backMassVox),backCenter);
 	
+  /* ==========================================================================================
+  Modifications were made in Lines 4611 to 4814 by Seonyeong Park to improve blood vasculature 
+  modeling for use in optical and optoacoustic imaging.
+  
+  Reference:
+    Seonyeong Park, Umberto Villa, Fu Li, Refik Mert Cam, Alexander A. Oraevsky, Mark A. 
+    Anastasio, "Stochastic three-dimensional numerical phantoms to enable computational studies 
+    in quantitative optoacoustic computed tomography of breast cancer," J. Biomed. Opt. 28(6) 
+    066002 (20 June 2023) https://doi.org/10.1117/1.JBO.28.6.066002
+  ========================================================================================== */
+  /*
   double arteryAngle[4];
   double veinAngle[5];
 	
@@ -4594,12 +4617,26 @@ int main(int argc, char* argv[]){
 	
   double arteryStartDirList[4][3];
   double veinStartDirList[5][3];
-	
+	*/
+  double arteryAngle[7];
+  double veinAngle[7];
+
+  double arteryStartPosList[7][3];
+  double veinStartPosList[7][3];
+
+  double arteryStartDirList[7][3];
+  double veinStartDirList[7][3];
+
   // set angles eminating from backCenter, stay a distance away from edge of breast
   // edit, was 12
+  /*
   double vesselEdgeSep = 20;  // distance from edge of breast of vessel entry point (mm)
-	
+  */
+  double vesselEdgeSep1 = vm["vesselTree.vesselEdgeSep1"].as<double>(); // Distance from edge of breast of vessel entry point (mm)
+  double vesselEdgeSep2 = vm["vesselTree.vesselEdgeSep2"].as<double>(); // Distance from edge of breast of vessel entry point (mm)
+
   if(leftSide){	// left breast
+    /*
     arteryAngle[0] = -4*pi/10;	// internal thoracic A
     arteryAngle[1] = 4*pi/10;	// internal thoracic B
     arteryAngle[2] = 0.0;	// thoraco-cranial
@@ -4609,8 +4646,24 @@ int main(int argc, char* argv[]){
     veinAngle[2] = -pi/3;	// subclavian
     veinAngle[3] = pi/5;	// intercostal
     veinAngle[4] = 2*pi/3;	// internal thoracic
+    */
+    arteryAngle[0] = 11*pi/15;  // Internal mammary A
+    arteryAngle[1] = -8*pi/9;   // Internal mammary B
+    arteryAngle[2] = 2*pi/5;    // Thoraco-acromial
+    arteryAngle[3] = -2*pi/45;  // Lateral thoracic
+    arteryAngle[4] = -pi/2;     // Subcapular & thoraco-dorsal 
+    arteryAngle[5] = 16*pi/45;  // Intercostal A
+    arteryAngle[6] = -pi/12;    // Intercostal B
+    veinAngle[0] = 41*pi/45;    // Internal mammary A
+    veinAngle[1] = -32*pi/45;   // Internal mammary B
+    veinAngle[2] = 17*pi/30;    // Thoraco-acromial
+    veinAngle[3] = pi/5;        // Lateral thoracic
+    veinAngle[4] = -13*pi/45;   // Subcapular & thoraco-dorsal
+    veinAngle[5] = pi/6;        // Intercostal A
+    veinAngle[6] = -3*pi/10;    // Intercostal B
   } else {
     // right breast
+    /*
     arteryAngle[0] = -6*pi/10;	// internal thoracic A
     arteryAngle[1] = 6*pi/10;	// internal thoracic B
     arteryAngle[2] = pi;	// thoraco-cranial
@@ -4620,10 +4673,28 @@ int main(int argc, char* argv[]){
     veinAngle[2] = -2*pi/3;		// subclavian
     veinAngle[3] = 4*pi/5;		// intercostal
     veinAngle[4] = pi/3;		// internal thoracic
+    */
+    arteryAngle[0] = 4*pi/15;   // Internal mammary A
+    arteryAngle[1] = -pi/9;     // Internal mammary B
+    arteryAngle[2] = 3*pi/5;    // Thoraco-acromial
+    arteryAngle[3] = -43*pi/45; // Lateral thoracic
+    arteryAngle[4] = -pi/2;     // Subcapular & thoraco-dorsal 
+    arteryAngle[5] = 29*pi/45;  // Intercostal A
+    arteryAngle[6] = -11*pi/12; // Intercostal B
+    veinAngle[0] = 4*pi/45;     // Internal mammary A
+    veinAngle[1] = -13*pi/45;   // Internal mammary B
+    veinAngle[2] = 13*pi/30;    // Thoraco-acromial
+    veinAngle[3] = 4*pi/5;      // Lateral thoracic
+    veinAngle[4] = -32*pi/45;   // Subcapular & thoraco-dorsal
+    veinAngle[5] = 5*pi/6;      // Intercostal A
+    veinAngle[6] = -7*pi/10;    // Intercostal B       
   }
 	
   // set start positions/directions arteries
+  /*
   for(int i=0; i<4; i++){
+  */
+  for (int i = 0; i < 7; i++){
     double step = imgRes/2.0;	// step for finding boundary of breast
     double len = 0.0;
     double testPos[3];
@@ -4642,9 +4713,20 @@ int main(int argc, char* argv[]){
       }
     }
     arteryStartPosList[i][0] = testPos[0];
+    /*
     arteryStartPosList[i][1] = backCenter[1] + (len-vesselEdgeSep)*cos(arteryAngle[i]);
     arteryStartPosList[i][2] = backCenter[2] + (len-vesselEdgeSep)*sin(arteryAngle[i]);
-		
+		*/
+    if (i < 5)
+    {
+      arteryStartPosList[i][1] = backCenter[1] + (len - vesselEdgeSep1) * cos(arteryAngle[i]);
+      arteryStartPosList[i][2] = backCenter[2] + (len - vesselEdgeSep1) * sin(arteryAngle[i]);
+    }
+    else
+    {
+      arteryStartPosList[i][1] = backCenter[1] + (len - vesselEdgeSep2) * cos(arteryAngle[i]);
+      arteryStartPosList[i][2] = backCenter[2] + (len - vesselEdgeSep2) * sin(arteryAngle[i]);
+    }  
     double veclen = 0.0;
     for(int j=0; j<3; j++){
       arteryStartDirList[i][j] = nipplePos[j] - arteryStartPosList[i][j];
@@ -4658,7 +4740,10 @@ int main(int argc, char* argv[]){
   }
 
   // set start positions/directions veins
+  /*
   for(int i=0; i<5; i++){
+  */
+  for (int i = 0; i < 7; i++){
     double step = imgRes/2.0;	// step for finding boundary of breast
     double len = 0.0;
     double testPos[3];
@@ -4677,9 +4762,21 @@ int main(int argc, char* argv[]){
       }
     }
     veinStartPosList[i][0] = testPos[0];
+    /*
     veinStartPosList[i][1] = backCenter[1] + (len-vesselEdgeSep)*cos(veinAngle[i]);
     veinStartPosList[i][2] = backCenter[2] + (len-vesselEdgeSep)*sin(veinAngle[i]);
-		
+		*/
+    if (i < 5)
+    {
+      veinStartPosList[i][1] = backCenter[1] + (len - vesselEdgeSep1) * cos(veinAngle[i]);
+      veinStartPosList[i][2] = backCenter[2] + (len - vesselEdgeSep1) * sin(veinAngle[i]);
+    }
+    else
+    {
+      veinStartPosList[i][1] = backCenter[1] + (len - vesselEdgeSep2) * cos(veinAngle[i]);
+      veinStartPosList[i][2] = backCenter[2] + (len - vesselEdgeSep2) * sin(veinAngle[i]);
+    }
+
     double veclen = 0.0;
     for(int j=0; j<3; j++){
       veinStartDirList[i][j] = nipplePos[j] - veinStartPosList[i][j];
@@ -4693,7 +4790,10 @@ int main(int argc, char* argv[]){
   }
 
   // create arteries
+  /*
   for(int i=0; i<4; i++){
+  */
+  for (int i = 0; i < 7; i++){
     // create a seed for artery random number generator
     int arterySeed = static_cast<int>(round(rgen->GetRangeValue(0.0, 1.0)*2147483648));
     rgen->Next();
@@ -4708,7 +4808,10 @@ int main(int argc, char* argv[]){
   }
 	
   // create veins
+  /*
   for(int i=0; i<5; i++){
+  */
+  for (int i = 0; i < 7; i++){ 
     // create a seed for vein random number generator
     int veinSeed = static_cast<int>(round(rgen->GetRangeValue(0.0, 1.0)*2147483648));
     rgen->Next();
